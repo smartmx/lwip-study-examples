@@ -498,16 +498,16 @@ OS_TASK(os_lwip, void)
         netif_set_down(&WCH_NetIf);
     }
 
-    led_timer_start();
     while (1)
     {
+        OS_TASK_SET_STATE();
         if(list_head(ch307_mac_rec) != NULL)
         {
             /* received a packet */
             ethernetif_input(&WCH_NetIf);
         }
         sys_check_timeouts();
-        OS_TASK_YIELD();
+        OS_TASK_CWAITX(0);
     }
     OS_TASK_END(os_lwip);
 }
