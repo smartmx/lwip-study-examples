@@ -498,7 +498,6 @@ OS_TASK(os_lwip, void)
         netif_set_down(&WCH_NetIf);
     }
 
-    while (1)
     {
         OS_TASK_SET_STATE();
         if(list_head(ch307_mac_rec) != NULL)
