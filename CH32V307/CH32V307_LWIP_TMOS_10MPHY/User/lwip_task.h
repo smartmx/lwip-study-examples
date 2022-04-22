@@ -77,7 +77,7 @@ extern void FETH_pin_init(void);
 extern void led_timer_stop(void);
 extern void led_timer_start(void);
 
-extern void lwip_dhcp_success_callback();
+extern void lwip_init_success_callback();
 
 extern OS_TASK(os_lwip, void);
 

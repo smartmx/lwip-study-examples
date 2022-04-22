@@ -78,18 +78,19 @@ OS_SUBNT(CH307_INIT_PHY, void)
 
     OS_SUBNT_WAITX(OS_SEC_TICKS / 10);
 
-    while(RESET == RCC_GetFlagStatus(RCC_FLAG_PLL3RDY))
+    if(RESET == RCC_GetFlagStatus(RCC_FLAG_PLL3RDY))
     {
         printf("Wait for PLL3 ready.\n");
-        OS_SUBNT_WAITX(OS_SEC_TICKS / 2);
+        OS_SUBNT_CWAITX(OS_SEC_TICKS / 2);
     }
+
     printf("PLL3 is ready.\n");
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO,ENABLE);
 
     /* Ethernet_Configuration */
     /* MUST use static in OS_TASK */
     static ETH_InitTypeDef *ETH_InitStructure;
-    static uint32_t timeout=10;
+    static uint32_t timeout;
 
     ETH_InitStructure = mem_malloc(sizeof(ETH_InitTypeDef));
     /* Enable Ethernet MAC clock */
@@ -122,13 +123,18 @@ OS_SUBNT(CH307_INIT_PHY, void)
     ETH_SoftwareReset();
 
     /* Wait for software reset */
-    while(ETH->DMABMR & ETH_DMABMR_SR)
+    timeout=10;
+    OS_SUBNT_SET_STATE();
+    if(ETH->DMABMR & ETH_DMABMR_SR)
     {
-        OS_SUBNT_WAITX(OS_SEC_TICKS / 100);
         timeout--;
         if(timeout==0)
+        {
             printf("Error:Eth soft-reset timeout!\nPlease check RGMII TX & RX clock line.\n");
+        }
+        OS_SUBNT_CWAITX(OS_SEC_TICKS / 100);
     }
+
     /* ETHERNET Configuration ------------------------------------------------------*/
     /* Call ETH_StructInit if you don't like to configure all ETH_InitStructure parameter */
     ETH_StructInit(ETH_InitStructure);
@@ -146,7 +152,7 @@ OS_SUBNT(CH307_INIT_PHY, void)
     ETH_InitStructure->ETH_MulticastFramesFilter = ETH_MulticastFramesFilter_Perfect;
     ETH_InitStructure->ETH_UnicastFramesFilter = ETH_UnicastFramesFilter_Perfect;
 #ifdef CHECKSUM_BY_HARDWARE
-  ETH_InitStructure.ETH_ChecksumOffload = ETH_ChecksumOffload_Enable;
+    ETH_InitStructure->ETH_ChecksumOffload = ETH_ChecksumOffload_Enable;
 #endif
     /*------------------------   DMA   -----------------------------------*/
     /* When we use the Checksum offload feature, we need to enable the Store and Forward mode:
@@ -167,6 +173,7 @@ OS_SUBNT(CH307_INIT_PHY, void)
     /* Configure Ethernet */
     uint32_t tmpreg = 0;
     static uint16_t RegValue = 0;
+
     /*---------------------- 物理层配置 -------------------*/
     /* 置SMI接口时钟 ，置为主频的42分频  */
     tmpreg = ETH->MACMIIAR;
@@ -178,48 +185,58 @@ OS_SUBNT(CH307_INIT_PHY, void)
     ETH_WritePHYRegister(PHY_ADDRESS, PHY_BCR, PHY_Reset);/* 复位物理层  */
 
     OS_SUBNT_WAITX(OS_SEC_TICKS / 10);/* 复位延迟  */
+
     timeout=10000;/* 最大超时十秒   */
     RegValue = 0;
-    while( (RegValue&(PHY_Reset)) )
+
+    OS_SUBNT_SET_STATE();
+
+    RegValue = ETH_ReadPHYRegister(PHY_ADDRESS, PHY_BCR);
+    if((RegValue & (PHY_Reset)))
     {
-        RegValue = ETH_ReadPHYRegister(PHY_ADDRESS, PHY_BCR);
         timeout--;
         if(timeout<=0)
         {
           printf("Error:Wait phy software timeout!\nPlease cheak PHY/MID.\nProgram has been blocked!\n");
           while(1);
         }
-        OS_SUBNT_WAITX(OS_SEC_TICKS / 1000);
+        OS_SUBNT_CWAITX(OS_SEC_TICKS / 1000);
     }
 
     /* 等待物理层与对端建立LINK */
     timeout=10000;/* 最大超时十秒   */
     RegValue = 0;
-    while( (RegValue&(PHY_Linked_Status)) == 0 )
+
+    OS_SUBNT_SET_STATE();
+
+    RegValue = ETH_ReadPHYRegister(PHY_ADDRESS, PHY_BSR);
+    if((RegValue&(PHY_Linked_Status)) == 0)
     {
-        RegValue = ETH_ReadPHYRegister(PHY_ADDRESS, PHY_BSR);
         timeout--;
         if(timeout<=0)
         {
           printf("Error:Wait phy linking timeout!\nPlease cheak MID.\nProgram has been blocked!\n");
           while(1);
         }
-        OS_SUBNT_WAITX(OS_SEC_TICKS / 1000);
+        OS_SUBNT_CWAITX(OS_SEC_TICKS / 1000);
     }
 
     /* 等待物理层完成自动协商 */
     timeout=10000;/* 最大超时十秒   */
     RegValue = 0;
-    while( (RegValue&PHY_AutoNego_Complete) == 0 )
+
+    OS_SUBNT_SET_STATE();
+
+    RegValue = ETH_ReadPHYRegister(PHY_ADDRESS, PHY_BSR);
+    if( (RegValue&PHY_AutoNego_Complete) == 0 )
     {
-        RegValue = ETH_ReadPHYRegister(PHY_ADDRESS, PHY_BSR);
         timeout--;
         if(timeout<=0)
         {
           printf("Error:Wait phy auto-negotiation complete timeout!\nPlease cheak MID.\nProgram has been blocked!\n");
           while(1);
         }
-        OS_SUBNT_WAITX(OS_SEC_TICKS / 1000);
+        OS_SUBNT_CWAITX(OS_SEC_TICKS / 1000);
     }
 
 #ifdef USE10BASE_T
@@ -419,20 +436,17 @@ static void wait_dhcp(void *arg)
     }
     else
     {
-        printf("本地IP地址是:%ld.%ld.%ld.%ld\n\n",  \
-            ((WCH_NetIf.ip_addr.addr)&0x000000ff),       \
-            (((WCH_NetIf.ip_addr.addr)&0x0000ff00)>>8),  \
-            (((WCH_NetIf.ip_addr.addr)&0x00ff0000)>>16), \
-            ((WCH_NetIf.ip_addr.addr)&0xff000000)>>24);
-        lwip_dhcp_success_callback(); /* dhcp分配成功回调，用户在此增加关于网络进程的初始化函数 */
+        lwip_init_success_callback(&(WCH_NetIf.ip_addr)); /* ip分配成功回调，用户在此增加关于网络进程的初始化函数 */
     }
 }
 
 OS_TASK(os_lwip, void)
 {
     OS_TASK_START(os_lwip);
+
     /* mem_init of lwip, init outside the lwip_init for user to using outside. */
     mem_init();
+
     /* call sub task ch307 init phy */
     OS_CALL_SUBNT(CH307_INIT_PHY);
     printf("CH307_INIT_PHY ok\n");
@@ -485,28 +499,26 @@ OS_TASK(os_lwip, void)
         sys_timeout(50, wait_dhcp, NULL);
 
 #else
-        printf("本地IP地址是:%ld.%ld.%ld.%ld\n\n",  \
-            ((WCH_NetIf.ip_addr.addr)&0x000000ff),       \
-            (((WCH_NetIf.ip_addr.addr)&0x0000ff00)>>8),  \
-            (((WCH_NetIf.ip_addr.addr)&0x00ff0000)>>16), \
-            ((WCH_NetIf.ip_addr.addr)&0xff000000)>>24);
+
+        lwip_init_success_callback(&(WCH_NetIf.ip_addr)); /*ip分配成功回调，用户在此增加关于网络进程的初始化函数*/
+
 #endif
+
+        {
+            OS_TASK_SET_STATE();
+            if(list_head(ch307_mac_rec) != NULL)
+            {
+                /* received a packet */
+                ethernetif_input(&WCH_NetIf);
+            }
+            sys_check_timeouts();
+            OS_TASK_CWAITX(0);
+        }
     }
     else
     {
         /* When the netif link is down this function must be called */
         netif_set_down(&WCH_NetIf);
-    }
-
-    {
-        OS_TASK_SET_STATE();
-        if(list_head(ch307_mac_rec) != NULL)
-        {
-            /* received a packet */
-            ethernetif_input(&WCH_NetIf);
-        }
-        sys_check_timeouts();
-        OS_TASK_CWAITX(0);
     }
     OS_TASK_END(os_lwip);
 }
@@ -660,6 +672,11 @@ void* ETH_RxPkt_ChainMode(void)
     memb_free(&ch307_mac_rec_frame_mem, rec_frame);
     /* Return error: OWN bit set */
     return NULL;
+  }
+
+  if(rec_frame == NULL)
+  {
+      return NULL;
   }
 
   if(

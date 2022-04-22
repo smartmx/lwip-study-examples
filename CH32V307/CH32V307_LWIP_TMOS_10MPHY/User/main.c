@@ -10,6 +10,7 @@
 #include "lwip_task.h"
 #include "main.h"
 #include "tcpecho.h"
+#include "lwip/apps/lwiperf.h"
 
 /*********************************************************************
  * @fn      main
@@ -41,8 +42,16 @@ int main(void)
     }
 }
 
+ip4_addr_t ipaddr;
+
 /* dhcp分配成功回调，用户在此增加关于网络进程的初始化函数 */
-void lwip_dhcp_success_callback()
+void lwip_init_success_callback(ip_addr_t *ip)
 {
+    printf("本地IP地址是:%ld.%ld.%ld.%ld\n\n",  \
+        ((ip->addr)&0x000000ff),       \
+        (((ip->addr)&0x0000ff00)>>8),  \
+        (((ip->addr)&0x00ff0000)>>16), \
+        ((ip->addr)&0xff000000)>>24);
     TCP_Echo_Init();
+    lwiperf_start_tcp_server(ip, 9527, NULL, NULL);
 }
