@@ -595,7 +595,6 @@ void* ETH_RxPkt_ChainMode(void)
   /* Check if the descriptor is owned by the ETHERNET DMA (when set) or CPU (when reset) */
   if((DMARxDescToGet->Status & ETH_DMARxDesc_OWN) != (u32)RESET)
   {
-    rec_frame->length = ETH_ERROR;
 
     if ((ETH->DMASR & ETH_DMASR_RBUS) != (u32)RESET)
     {
@@ -605,7 +604,12 @@ void* ETH_RxPkt_ChainMode(void)
       ETH->DMARPDR = 0;
     }
     printf("Error:ETH_DMARxDesc_OWN.\n");
-    memb_free(&ch307_mac_rec_frame_mem, rec_frame);
+
+    if(rec_frame != NULL)
+    {
+        rec_frame->length = ETH_ERROR;
+        memb_free(&ch307_mac_rec_frame_mem, rec_frame);
+    }
     /* Return error: OWN bit set */
     return NULL;
   }
