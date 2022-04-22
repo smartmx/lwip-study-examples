@@ -113,7 +113,7 @@ a lot of data that needs to be copied, this should be set high. */
    --------------------------------------
 */
 
-//#define CHECKSUM_BY_HARDWARE
+#define CHECKSUM_BY_HARDWARE
 
 
 #ifdef CHECKSUM_BY_HARDWARE

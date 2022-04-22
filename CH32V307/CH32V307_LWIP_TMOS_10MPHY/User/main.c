@@ -42,9 +42,7 @@ int main(void)
     }
 }
 
-ip4_addr_t ipaddr;
-
-/* dhcp分配成功回调，用户在此增加关于网络进程的初始化函数 */
+/* IP分配成功回调，用户在此增加关于网络进程的初始化函数 */
 void lwip_init_success_callback(ip_addr_t *ip)
 {
     printf("本地IP地址是:%ld.%ld.%ld.%ld\n\n",  \

@@ -43,7 +43,7 @@
 #include "memb.h"
 
 #define ETH_RXBUFNB        4
-#define ETH_TXBUFNB        2
+#define ETH_TXBUFNB        4
 
 #if 0
 #define USE_LOOP_STRUCT    1

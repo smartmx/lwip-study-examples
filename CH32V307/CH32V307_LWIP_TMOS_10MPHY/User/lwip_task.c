@@ -83,7 +83,6 @@ OS_SUBNT(CH307_INIT_PHY, void)
         printf("Wait for PLL3 ready.\n");
         OS_SUBNT_CWAITX(OS_SEC_TICKS / 2);
     }
-
     printf("PLL3 is ready.\n");
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO,ENABLE);
 
@@ -93,6 +92,7 @@ OS_SUBNT(CH307_INIT_PHY, void)
     static uint32_t timeout;
 
     ETH_InitStructure = mem_malloc(sizeof(ETH_InitTypeDef));
+    memset(ETH_InitStructure, 0, sizeof(ETH_InitTypeDef));
     /* Enable Ethernet MAC clock */
     RCC_AHBPeriphClockCmd(RCC_AHBPeriph_ETH_MAC|RCC_AHBPeriph_ETH_MAC_Tx|RCC_AHBPeriph_ETH_MAC_Rx,ENABLE);
 
@@ -210,7 +210,7 @@ OS_SUBNT(CH307_INIT_PHY, void)
     OS_SUBNT_SET_STATE();
 
     RegValue = ETH_ReadPHYRegister(PHY_ADDRESS, PHY_BSR);
-    if((RegValue&(PHY_Linked_Status)) == 0)
+    if((RegValue & (PHY_Linked_Status)) == 0)
     {
         timeout--;
         if(timeout<=0)
@@ -228,7 +228,7 @@ OS_SUBNT(CH307_INIT_PHY, void)
     OS_SUBNT_SET_STATE();
 
     RegValue = ETH_ReadPHYRegister(PHY_ADDRESS, PHY_BSR);
-    if( (RegValue&PHY_AutoNego_Complete) == 0 )
+    if( (RegValue & PHY_AutoNego_Complete) == 0 )
     {
         timeout--;
         if(timeout<=0)
@@ -239,91 +239,27 @@ OS_SUBNT(CH307_INIT_PHY, void)
         OS_SUBNT_CWAITX(OS_SEC_TICKS / 1000);
     }
 
-#ifdef USE10BASE_T
-    RegValue = ETH_ReadPHYRegister(PHY_ADDRESS, PHY_BMCR);
-    printf("PHY_BMCR:%d,value:%04x.\n",PHY_BMCR,RegValue);
-    if((RegValue & (1<<8)) != (uint32_t)RESET)
-    {
-      ETH_InitStructure->ETH_Mode = ETH_Mode_FullDuplex;
-      printf("Full-Duplex.\n");
-    }
-    else
-    {
-        ETH_InitStructure->ETH_Mode = ETH_Mode_HalfDuplex;
-      printf("Half-Duplex.\n");
-    }
-    if(RegValue & (1<<13))
-    {
-        ETH_InitStructure->ETH_Speed = ETH_Speed_100M;
-      printf("Link speed:100M.\n");
-    }
-    else
-    {
-        ETH_InitStructure->ETH_Speed = ETH_Speed_10M;
-      printf("Link speed:10M.\n");
-    }
-#endif
+    RegValue = ETH_ReadPHYRegister( PHY_ADDRESS, 0x10 );
+    printf("PHY_SR value:%04x.\n", RegValue);
 
-#ifdef USE_FAST_MAC
-    RegValue = ETH_ReadPHYRegister(PHY_ADDRESS, PHY_BMCR);
-    printf("PHY_BMCR:%d,value:%04x.\n",PHY_BMCR,RegValue);
-    if((RegValue & (1<<8)) != (uint32_t)RESET)
+    if( RegValue & (1<<2) )
     {
         ETH_InitStructure->ETH_Mode = ETH_Mode_FullDuplex;
-      printf("Full-Duplex.\n");
+      printf("Full Duplex.\n");
     }
     else
     {
         ETH_InitStructure->ETH_Mode = ETH_Mode_HalfDuplex;
-      printf("Half-Duplex.\n");
+      printf("Half Duplex.\n");
     }
-    if(RegValue & (1<<13))
+    ETH_InitStructure->ETH_Speed = ETH_Speed_10M;
+    if(RegValue & (1<<3))
     {
-        ETH_InitStructure->ETH_Speed = ETH_Speed_100M;
-      printf("Link speed:100M.\n");
+      printf("Loopback_10M \n");
     }
     else
     {
-        ETH_InitStructure->ETH_Speed = ETH_Speed_10M;
-      printf("Link speed:10M.\n");
     }
-#endif
-
-#ifdef USE_GIGA_MAC
-    /* 读取物理层协商结果 */
-    ETH_WritePHYRegister(PHY_ADDRESS, 31,0x0a43 );
-    RegValue = ETH_ReadPHYRegister(PHY_ADDRESS, 26);
-    if( RegValue & 0x0008 )
-    {
-        ETH_InitStructure->ETH_Mode = ETH_Mode_FullDuplex;
-        printf("full duplex.\n");
-    }
-    else
-    {
-        ETH_InitStructure->ETH_Mode = ETH_Mode_HalfDuplex;
-        printf("half duplex!\n");
-    }
-    if(( RegValue & 0x0030 ) == 0x0000)
-    {
-        ETH_InitStructure->ETH_Speed = ETH_Speed_10M;
-        printf("Link speed:10Mbps.\n");
-    }
-    else if(( RegValue & 0x0030 ) == 0x0010)
-    {
-        ETH_InitStructure->ETH_Speed = ETH_Speed_100M;
-        printf("Link speed:100Mbps.\n");
-    }
-    else if(( RegValue & 0x0030 ) == 0x0020)
-    {
-        ETH_InitStructure->ETH_Speed = ETH_Speed_1000M;
-        printf("Link speed:1000Mbps.\n");
-    }
-#endif
-
-#if 0/* 手动写固定值  */
-    ETH_InitStructure->ETH_Mode = ETH_Mode_FullDuplex;
-    ETH_InitStructure->ETH_Speed = ETH_Speed_1000M;
-#endif
 
     OS_SUBNT_WAITX(OS_SEC_TICKS / 10);
 
@@ -729,10 +665,12 @@ uint32_t ETH_TxPkt_ChainMode(u16 FrameLength)
 
     /* Setting the Frame Length: bits[12:0] */
     DMATxDescToSet->ControlBufferSize = (FrameLength & ETH_DMATxDesc_TBS1);
-
+#ifdef CHECKSUM_BY_HARDWARE
     /* Setting the last segment and first segment bits (in this case a frame is transmitted in one descriptor) */
+    DMATxDescToSet->Status |= ETH_DMATxDesc_LS | ETH_DMATxDesc_FS | ETH_DMATxDesc_CIC_TCPUDPICMP_Full;
+#else
     DMATxDescToSet->Status |= ETH_DMATxDesc_LS | ETH_DMATxDesc_FS;
-
+#endif
     /* Set Own bit of the Tx descriptor Status: gives the buffer back to ETHERNET DMA */
     DMATxDescToSet->Status |= ETH_DMATxDesc_OWN;
 
