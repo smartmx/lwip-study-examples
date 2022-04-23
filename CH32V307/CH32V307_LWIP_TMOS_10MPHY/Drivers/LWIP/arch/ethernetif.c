@@ -79,6 +79,10 @@ low_level_output(struct netif *netif, struct pbuf *p)
     {
         printf("Send failed.\n");
     }
+    else
+    {
+        net_data_led_require = 1;
+    }
     /* increase ifoutdiscards or ifouterrors on error */
 
 #if ETH_PAD_SIZE
@@ -107,6 +111,8 @@ low_level_input(struct netif *netif)
     }
     if (rec_data->length != 0)
     {
+        net_data_led_require = 1; /* require for led. */
+
         len = rec_data->length;
 
 #if ETH_PAD_SIZE

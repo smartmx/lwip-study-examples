@@ -57,6 +57,50 @@ GPIO_InitStructure.GPIO_Speed = GPIO_Speed_50MHz;\
 GPIO_InitStructure.GPIO_Mode = GPIO_Mode_IN_FLOATING;\
 GPIO_Init(a, &GPIO_InitStructure)
 
+
+/*********************************************************************
+ * @fn      Ethernet_LED_LINKSET
+ *
+ * @brief   set eth link led,setbit 0 or 1,the link led turn on or turn off
+ *
+ * @return  none
+ */
+void Ethernet_LED_LINKSET(uint8_t setbit)
+{
+     if(setbit){
+         GPIO_SetBits(GPIOB, GPIO_Pin_8);
+     }
+     else {
+         GPIO_ResetBits(GPIOB, GPIO_Pin_8);
+    }
+}
+
+
+/*********************************************************************
+ * @fn      Ethernet_LED_DATASET
+ *
+ * @brief   set eth data led,setbit 0 or 1,the data led turn on or turn off
+ *
+ * @return  none
+ */
+void Ethernet_LED_DATASET(uint8_t setbit)
+{
+     if(setbit){
+         GPIO_SetBits(GPIOB, GPIO_Pin_9);
+     }
+     else {
+         GPIO_ResetBits(GPIOB, GPIO_Pin_9);
+    }
+}
+
+
+/*********************************************************************
+ * @fn      CH307_INIT_PHY
+ *
+ * @brief   init ch307 on chip 10M-phy
+ *
+ * @return  none
+ */
 OS_SUBNT(CH307_INIT_PHY, void)
 {
     OS_SUBNT_START();
@@ -85,6 +129,15 @@ OS_SUBNT(CH307_INIT_PHY, void)
     }
     printf("PLL3 is ready.\n");
     RCC_APB2PeriphClockCmd(RCC_APB2Periph_AFIO,ENABLE);
+
+    /* Ethernet LED Configuration */
+    RCC_APB2PeriphClockCmd(RCC_APB2Periph_GPIOB,ENABLE);
+    GPIO.GPIO_Pin = GPIO_Pin_8|GPIO_Pin_9;
+    GPIO.GPIO_Mode = GPIO_Mode_Out_PP;
+    GPIO.GPIO_Speed = GPIO_Speed_50MHz;
+    GPIO_Init(GPIOB,&GPIO);
+    Ethernet_LED_LINKSET(1);/* turn off link led. */
+    Ethernet_LED_DATASET(1);/* turn off data led. */
 
     /* Ethernet_Configuration */
     /* MUST use static in OS_TASK */
@@ -263,6 +316,9 @@ OS_SUBNT(CH307_INIT_PHY, void)
 
     OS_SUBNT_WAITX(OS_SEC_TICKS / 10);
 
+    /* 点亮link状态led灯 */
+    Ethernet_LED_LINKSET(0);
+
     /*------------------------ MAC寄存器配置  ----------------------- --------------------*/
     /* MACCCR在RGMII接口模式下具有调整RGMII接口时序的域，请注意 */
     tmpreg = ETH->MACCR;
@@ -435,7 +491,6 @@ OS_TASK(os_lwip, void)
         sys_timeout(50, wait_dhcp, NULL);
 
 #else
-
         lwip_init_success_callback(&(WCH_NetIf.ip_addr)); /*ip分配成功回调，用户在此增加关于网络进程的初始化函数*/
 
 #endif
@@ -558,24 +613,36 @@ void SysTick_Handler(void)
     SysTick->SR=0;
 }
 
-static void led_timer(void *arg);
-#define LED_TMR_INTERVAL    500     //亮灯周期100ms
-
-void led_timer_start(void)
+volatile uint8_t net_data_led_require = 0;
+/*********************************************************************
+ * @fn      net_led_tmr
+ *
+ * @brief   lwip timeouts.c中period timer中增加的自定义超时函数，每NET_LED_PERIOD_MSECS周期调用
+ *
+ * @param   None.
+ *
+ * @return  None.
+ */
+void net_led_tmr(void)
 {
-    sys_timeout(LED_TMR_INTERVAL, led_timer, NULL);
-}
+    static uint8_t net_data_led = 0;
 
-void led_timer_stop(void)
-{
-
-    sys_untimeout(led_timer, NULL);
-}
-
-static void led_timer(void *arg)
-{
-    printf("os_lwip\n");
-  //sys_timeout(LED_TMR_INTERVAL, led_timer, NULL);
+    if(net_data_led)
+    {
+        /* 当前处在亮灯状态 */
+        net_data_led = 0;
+        Ethernet_LED_DATASET(1);/* turn off data led. */
+    }
+    else
+    {
+        /* 当前处在灭灯状态，如果本周期内又收到了数据包，亮灯 */
+        if(net_data_led_require != 0)
+        {
+            net_data_led = 1;
+            Ethernet_LED_DATASET(0);/* turn on data led. */
+            net_data_led_require = 0;
+        }
+    }
 }
 
 /*********************************************************************

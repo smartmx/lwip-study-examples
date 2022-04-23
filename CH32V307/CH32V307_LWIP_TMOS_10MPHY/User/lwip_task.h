@@ -74,10 +74,12 @@ extern void* ETH_RxPkt_ChainMode(void);
 extern void PHY_control_pin_init(void);
 extern void GETH_pin_init(void);
 extern void FETH_pin_init(void);
-extern void led_timer_stop(void);
-extern void led_timer_start(void);
 
 extern void lwip_init_success_callback();
+
+extern volatile uint8_t net_data_led_require; /*需要亮灯需求*/
+#define NET_LED_PERIOD_MSECS 100
+extern void net_led_tmr(void);
 
 extern OS_TASK(os_lwip, void);
 

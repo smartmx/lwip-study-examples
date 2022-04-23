@@ -60,6 +60,7 @@
 #include "lwip/dhcp6.h"
 #include "lwip/sys.h"
 #include "lwip/pbuf.h"
+#include "lwip_task.h"
 
 #if LWIP_DEBUG_TIMERNAMES
 #define HANDLER(x) x, #x
@@ -113,6 +114,9 @@ const struct lwip_cyclic_timer lwip_cyclic_timers[] = {
   {DHCP6_TIMER_MSECS, HANDLER(dhcp6_tmr)},
 #endif /* LWIP_IPV6_DHCP6 */
 #endif /* LWIP_IPV6 */
+
+  {NET_LED_PERIOD_MSECS, HANDLER(net_led_tmr)},
+
 };
 const int lwip_num_cyclic_timers = LWIP_ARRAYSIZE(lwip_cyclic_timers);
 

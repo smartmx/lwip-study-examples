@@ -16,12 +16,4 @@ void ethernetif_notify_conn_changed(struct netif *netif);
 u32_t sys_jiffies(void);
 u32_t sys_now(void);
 
-
-
-void led_timer_stop(void);
-void led_timer_start(void);
-
-
-
 #endif
-
