@@ -153,7 +153,7 @@ extern volatile TINY_MACRO_OS_LINE_t                OS_LINES[TINY_MACRO_OS_TASKS
 #define OS_TASK_EXIT_ANOTHER(ANAME)                 do{OS_LINES[(ANAME)]=0U;OS_TIMERS[(ANAME)]=(TINY_MACRO_OS_TIME_MAX);}while(0)
 
 /* 运行任务，不管任务时间状态立刻调用任务函数运行。 */
-#define OS_TASK_CALL_ANOTHER(ANAME, ...)            do{OS_TIMERS[(ANAME)]=(ANAME##_task)(__VA_ARGS__);} while(0)
+#define OS_TASK_CALL_ANOTHER(ANAME, ...)            do{OS_TIMERS[(ANAME)]=0U;OS_TIMERS[(ANAME)]=(ANAME##_task)(__VA_ARGS__);} while(0)
 
 /**************************调用通过枚举定义的带有自己时间的子任务，需在枚举中添加自身的值，可以被其他任务结束*******************************************/
 /* 在任务中调用的子任务，会先退出主任务，在下一次执行主任务时，直接执行子任务。在子任务结束之前不会继续主任务，即子任务占用了主任务的系统时间变量使用权。 */
@@ -184,14 +184,14 @@ extern volatile TINY_MACRO_OS_LINE_t                OS_LINES[TINY_MACRO_OS_TASKS
 /* 退出当前SubNT子任务，并等待对应时间，保存当前运行位置，时间单位为中断里定义的系统最小时间。 */
 #define OS_SUBNT_WAITX(TICKS)                       do{os_task_lc=((TINY_MACRO_OS_LINE_t)(__LINE__)%TINY_MACRO_OS_LINE_MAX+1U);return (TICKS);case (((TINY_MACRO_OS_LINE_t)(__LINE__)%TINY_MACRO_OS_LINE_MAX)+1U):;}while(0)
 
+/* 跳出当前SubNT子任务，保存当前运行位置，等下一次执行时继续运行 */
+#define OS_SUBNT_YIELD()                            OS_SUBNT_WAITX(0)
+
 /* 设置函数状态 */
 #define OS_SUBNT_SET_STATE()                        do{os_task_lc=(((TINY_MACRO_OS_LINE_t)(__LINE__)%(TINY_MACRO_OS_LINE_MAX))+1U);case (((TINY_MACRO_OS_LINE_t)(__LINE__)%(TINY_MACRO_OS_LINE_MAX))+1U):;}while(0)
 
 /* 等待时间，不改变上一次函数跳转位置 */
 #define OS_SUBNT_CWAITX(TICKS)                      return (TICKS)
-
-/* 跳出当前SubNT子任务，保存当前运行位置，等下一次执行时继续运行 */
-#define OS_SUBNT_YIELD()                            OS_SUBNT_WAITX(0)
 
 /* 复位当前SubNT子任务，在指定时间后开始下一次运行，并从头开始 */
 #define OS_SUBNT_RESET(TICKS)                       do{os_task_lc=0;}while(0);return (TICKS)
