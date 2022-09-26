@@ -36,6 +36,7 @@
 enum
 {
     os_lwip = 0,
+    os_lwip_timeouts,
     TINY_MACRO_OS_TASKS_MAX_NUM,    /* 该选项不可删除或修改，用于计算任务数量去定义时间数组和状态数组，最大255个任务 */
 };
 
@@ -72,7 +73,7 @@ extern volatile TINY_MACRO_OS_LINE_t                OS_LINES[TINY_MACRO_OS_TASKS
 #define OS_TASK(NAME, ...)                          TINY_MACRO_OS_TIME_t (NAME##_task)(__VA_ARGS__)
 
 /* 函数任务系统调度开始定义 */
-#define OS_TASK_START(NAME)                         enum{_task_name=NAME};switch(OS_LINES[(NAME)]){case 0U:
+#define OS_TASK_START(NAME)                         enum{_task_name=NAME};switch(OS_LINES[(NAME)]){default:
 
 /* 函数任务系统调度结束定义 */
 #define OS_TASK_END(NAME)                           break;}OS_LINES[(NAME)]=0U;return (TINY_MACRO_OS_TIME_MAX)
@@ -119,6 +120,12 @@ extern volatile TINY_MACRO_OS_LINE_t                OS_LINES[TINY_MACRO_OS_TASKS
 
 /* 等待条件 C 满足再继续向下执行，查询频率为每ticks个时钟一次，带有超时次数，需要用户自己提供一个变量进行超时计算，不可为局部变量，必须为全局变量或者函数内静态变量 */
 #define OS_TASK_WAIT_UNTILX(C, TICKS, TIMES, VAR)   do{(VAR)=(TIMES);OS_TASK_WAITX((TICKS));if(!(C)&&((VAR)>0)){(VAR)--;return (TICKS);}} while(0)
+
+/* 判断任务是否在运行 */
+#define OS_TASK_IS_RUNNING(NAME)                    (OS_TIMERS[NAME]!=TINY_MACRO_OS_TIME_MAX)
+
+/* 判断任务是否已经退出 */
+#define OS_TASK_IS_EXITED(NAME)                     (OS_TIMERS[NAME]==TINY_MACRO_OS_TIME_MAX)
 
 /*************************************信号量*******************************************/
 /* 等待信号量超时 */
@@ -173,7 +180,7 @@ extern volatile TINY_MACRO_OS_LINE_t                OS_LINES[TINY_MACRO_OS_TASKS
 #define OS_SUBNT(NAME, ...)                         TINY_MACRO_OS_TIME_t (NAME##_subnt)(__VA_ARGS__)
 
 /* SubNT子任务函数调度开始定义 */
-#define OS_SUBNT_START()                            static TINY_MACRO_OS_LINE_t os_task_lc=0U;switch(os_task_lc){case 0U:
+#define OS_SUBNT_START()                            static TINY_MACRO_OS_LINE_t os_task_lc=0U;switch(os_task_lc){default:
 
 /* SubNT子任务函数调度结束定义 */
 #define OS_SUBNT_END()                              break;}os_task_lc=0U;return TINY_MACRO_OS_TIME_MAX

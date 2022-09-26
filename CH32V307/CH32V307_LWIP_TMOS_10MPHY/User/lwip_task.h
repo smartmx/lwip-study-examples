@@ -83,4 +83,6 @@ extern void net_led_tmr(void);
 
 extern OS_TASK(os_lwip, void);
 
+extern OS_TASK(os_lwip_timeouts, void);
+
 #endif /* _LWIP_TASK_H_ */

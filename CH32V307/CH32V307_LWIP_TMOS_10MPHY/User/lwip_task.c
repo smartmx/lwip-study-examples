@@ -494,6 +494,7 @@ OS_TASK(os_lwip, void)
         lwip_init_success_callback(&(WCH_NetIf.ip_addr)); /*ip分配成功回调，用户在此增加关于网络进程的初始化函数*/
 
 #endif
+        OS_TASK_RESTART_ANOTHER(os_lwip_timeouts, 5);  /* 开始超时任务处理 */
 
         {
             OS_TASK_SET_STATE();
@@ -502,8 +503,7 @@ OS_TASK(os_lwip, void)
                 /* received a packet */
                 ethernetif_input(&WCH_NetIf);
             }
-            sys_check_timeouts();
-            OS_TASK_CWAITX(0);
+            OS_TASK_CWAITX(0);      /* 不断轮询有没有数据包需要处理 */
         }
     }
     else
@@ -512,6 +512,19 @@ OS_TASK(os_lwip, void)
         netif_set_down(&WCH_NetIf);
     }
     OS_TASK_END(os_lwip);
+}
+
+OS_TASK(os_lwip_timeouts, void)
+{
+    OS_TASK_START(os_lwip_timeouts);
+
+    {
+        OS_TASK_SET_STATE();
+        sys_check_timeouts();
+        OS_TASK_CWAITX(5);      /* 5ms检查一次timeouts超时 */
+    }
+
+    OS_TASK_END(os_lwip_timeouts);
 }
 
 void ETH_IRQHandler(void) __attribute__((interrupt("WCH-Interrupt-fast")));

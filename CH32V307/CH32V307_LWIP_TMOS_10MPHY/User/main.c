@@ -34,11 +34,13 @@ int main(void)
     SysTick->CTLR= 0xf;
 
     OS_INIT_TASKS();
+    OS_TASK_EXIT_ANOTHER(os_lwip_timeouts);     /* 超时任务等待lwip主任务启动 */
 
     printf("Enter main loop.\n");
     while(1)
     {
         OS_RUN_TASK(os_lwip);
+        OS_RUN_TASK(os_lwip_timeouts);
     }
 }
 
